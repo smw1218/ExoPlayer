@@ -69,6 +69,7 @@ public final class Mp3Extractor implements Extractor {
   private long basisTimeUs;
   private long samplesRead;
   private int sampleBytesRemaining;
+  private boolean forceConstantBitrateSeeks;
 
   /**
    * Constructs a new {@link Mp3Extractor}.
@@ -83,11 +84,24 @@ public final class Mp3Extractor implements Extractor {
    * @param forcedFirstSampleTimestampUs A timestamp to force for the first sample, or -1 if forcing
    *     is not required.
    */
-  public Mp3Extractor(long forcedFirstSampleTimestampUs) {
+  public Mp3Extractor(long forcedFirstSampleTimestampUs) { this(forcedFirstSampleTimestampUs, false); }
+
+  /**
+   * Constructs a new {@link Mp3Extractor}.
+   * @param forcedFirstSampleTimestampUs A timestamp to force for the first sample, or -1 if forcing
+   *     is not required.
+   * @param forceConstantBitrateSeeks normally, an mp3 file is assumed to be variable bitrate and seeks
+   *     are performed using table-of-contents information in XING or VBRI headers.  If you know the
+   *     media has been encoded at a constant bitrate, setting this to true improves seek
+   *     accuracy over a table-of-contents based approach (especially for XING headers).
+   *     Default value is false.
+   */
+  public Mp3Extractor(long forcedFirstSampleTimestampUs, boolean forceConstantBitrateSeeks) {
     this.forcedFirstSampleTimestampUs = forcedFirstSampleTimestampUs;
     scratch = new ParsableByteArray(4);
     synchronizedHeader = new MpegAudioHeader();
     basisTimeUs = -1;
+    this.forceConstantBitrateSeeks = forceConstantBitrateSeeks;
   }
 
   @Override
@@ -310,7 +324,7 @@ public final class Mp3Extractor implements Extractor {
       }
     }
 
-    if (seeker == null) {
+    if (seeker == null || forceConstantBitrateSeeks) {
       // Repopulate the synchronized header in case we had to skip an invalid seeking header, which
       // would give an invalid CBR bitrate.
       input.resetPeekPosition();
